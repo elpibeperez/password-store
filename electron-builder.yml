@@ -1,0 +1,20 @@
+appId: com.passmanager.app
+productName: password-store
+copyright: Copyright © 2026
+
+directories:
+  output: release
+
+extraMetadata:
+  main: out/main/index.js
+
+linux:
+  target:
+    - deb
+  category: Utility
+  icon: build/icon.png
+  synopsis: Client for password-store
+  description: Desktop and mobile client for password-store (pass).
+
+deb:
+  depends: []

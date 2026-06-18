@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>password-store diagnostic</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #030712; color: #f3f4f6; font-family: monospace; font-size: 13px; padding: 16px; }
+h1 { font-size: 18px; margin-bottom: 12px; color: #60a5fa; }
+.test { padding: 8px 12px; margin-bottom: 4px; border-radius: 6px; display: flex; gap: 8px; }
+.pass { background: #064e3b; }
+.fail { background: #450a0a; }
+.running { background: #1f2937; }
+.status { flex-shrink: 0; }
+.detail { color: #9ca3af; font-size: 11px; word-break: break-all; margin-top: 2px; }
+.label { font-weight: bold; }
+pre { background: #1f2937; padding: 8px; border-radius: 4px; font-size: 11px; margin-top: 4px; max-height: 200px; overflow: auto; }
+button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; margin-top: 8px; }
+button:hover { background: #3b82f6; }
+.error { color: #f87171; }
+</style>
+</head>
+<body>
+<h1>&#128477; password-store Diagnostic</h1>
+<div id="tests"></div>
+<div id="user-agent" style="color:#6b7280;font-size:11px;margin-top:12px"></div>
+
+<script>
+(function() {
+  const tests = document.getElementById('tests');
+  const ua = document.getElementById('user-agent');
+  ua.textContent = 'UA: ' + navigator.userAgent.slice(0, 100) + '...';
+
+  function addTest(label, status, detail) {
+    const div = document.createElement('div');
+    div.className = 'test ' + status;
+    let icon = status === 'pass' ? '&#10003;' : status === 'fail' ? '&#10007;' : '&#8987;';
+    div.innerHTML = '<div class="status">' + icon + '</div><div><div class="label">' + label + '</div><div class="detail">' + (detail || '') + '</div></div>';
+    tests.appendChild(div);
+  }
+
+  async function runTests() {
+    // 0: Origin
+    addTest('Origin', 'pass', location.origin);
+
+    // 1: NativeHttpBridge
+    var bridge = window.NativeHttpBridge;
+    addTest('NativeHttpBridge', bridge ? 'pass' : 'fail', bridge ? 'request() available' : 'NOT found');
+
+    // 2: Capacitor
+    var cap = window.Capacitor;
+    if (cap) {
+      var isNative = typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : 'N/A';
+      addTest('Capacitor.isNativePlatform()', 'pass', String(isNative));
+      if (cap.Plugins) {
+        var hasHttp = !!(cap.Plugins.CapacitorHttp && cap.Plugins.CapacitorHttp.request);
+        addTest('Capacitor.Plugins.CapacitorHttp', hasHttp ? 'pass' : 'fail', hasHttp ? 'available' : 'NOT in Plugins');
+      }
+    } else {
+      addTest('Capacitor', 'fail', 'window.Capacitor not found');
+    }
+
+    // 3: XHR to github.com
+    addTest('XHR: github.com', 'running', '');
+    try {
+      var resp = await xhrGet('https://github.com');
+      addTest('XHR: github.com', resp.ok ? 'pass' : 'fail', 'Status: ' + resp.status + ' ' + resp.statusText + ' (' + resp.size + ' bytes)');
+    } catch(e) { addTest('XHR: github.com', 'fail', String(e).slice(0, 150)); }
+
+    // 4: XHR to git-smart endpoint
+    var gitUrl = 'https://github.com/elpibeperez/.password-store/info/refs?service=git-upload-pack';
+    addTest('XHR: git-smart', 'running', gitUrl);
+    try {
+      var resp2 = await xhrGet(gitUrl);
+      addTest('XHR: git-smart', resp2.ok ? 'pass' : 'fail', 'Status: ' + resp2.status + ' ' + resp2.statusText + ' (' + resp2.size + ' bytes)');
+    } catch(e) { addTest('XHR: git-smart', 'fail', String(e).slice(0, 150)); }
+
+    // 5: fetch
+    addTest('fetch: github.com', 'running', '');
+    try {
+      var fresp = await fetch('https://github.com', { method: 'HEAD' });
+      addTest('fetch: github.com', fresp.ok ? 'pass' : 'fail', 'Status: ' + fresp.status + ' ' + fresp.statusText);
+    } catch(e) { addTest('fetch: github.com', 'fail', String(e).slice(0, 150)); }
+
+    // 6: NativeHttpBridge test (if available)
+    if (bridge && bridge.request) {
+      addTest('NativeHttpBridge: github.com', 'running', '');
+      try {
+        var res = JSON.parse(bridge.request('GET', 'https://github.com', '[]', ''));
+        addTest('NativeHttpBridge: github.com', res.status < 400 ? 'pass' : 'fail', 'Status: ' + res.status + ' ' + (res.statusMessage || ''));
+      } catch(e) { addTest('NativeHttpBridge: github.com', 'fail', String(e).slice(0, 150)); }
+    }
+
+    // 7: Log errors
+    var errCount = document.querySelectorAll('.fail').length;
+    if (errCount > 0) {
+      var p = document.createElement('p');
+      p.style.cssText = 'color:#f87171;margin-top:12px;font-size:12px';
+      p.textContent = errCount + ' test(s) failed. Review details above.';
+      tests.appendChild(p);
+    }
+  }
+
+  function xhrGet(url) {
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.timeout = 15000;
+      xhr.onload = function() { resolve({ ok: xhr.status < 400, status: xhr.status, statusText: xhr.statusText, size: (xhr.responseText || '').length }); };
+      xhr.onerror = function() { reject(new Error('Network error (readyState:' + xhr.readyState + ' status:' + xhr.status + ')')); };
+      xhr.ontimeout = function() { reject(new Error('Timeout')); };
+      xhr.send();
+    });
+  }
+
+  window.onerror = function(msg, source, line, col, err) {
+    var div = document.createElement('div');
+    div.className = 'test fail';
+    div.innerHTML = '<div class="status">&#10007;</div><div><div class="label">Global error</div><div class="detail">' + msg + '<br>' + (source || '') + ':' + line + ':' + col + '</div></div>';
+    tests.appendChild(div);
+  };
+
+  runTests();
+})();
+</script>
+</body>
+</html>

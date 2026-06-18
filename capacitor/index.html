@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icon.png"><title>password-store</title>
+  <link rel="stylesheet" crossorigin href="./style.css">
+  <script>
+    // Buffer polyfill - must run before module scripts
+    function PolyBuffer(data) {
+      if (data instanceof ArrayBuffer) this._data = new Uint8Array(data)
+      else if (typeof data === 'number') this._data = new Uint8Array(data)
+      else this._data = data
+    }
+    PolyBuffer.from = function(data, encoding) {
+      if (typeof data === 'string') {
+        if (encoding === 'hex') {
+          var bytes = new Uint8Array(Math.floor(data.length / 2))
+          for (var i = 0; i < data.length; i += 2) bytes[i / 2] = parseInt(data.slice(i, i + 2), 16)
+          return new PolyBuffer(bytes)
+        }
+        return new PolyBuffer(new TextEncoder().encode(data))
+      }
+      if (data instanceof Uint8Array) return new PolyBuffer(data)
+      if (data instanceof ArrayBuffer) return new PolyBuffer(new Uint8Array(data))
+      if (Array.isArray(data)) return new PolyBuffer(new Uint8Array(data))
+      if (typeof data === 'number') return new PolyBuffer(new Uint8Array(data))
+      return new PolyBuffer(new Uint8Array(0))
+    }
+    PolyBuffer.alloc = function(size) { return new PolyBuffer(new Uint8Array(size)) }
+    PolyBuffer.concat = function(list) {
+      var total = list.reduce(function(s, b) { return s + (b._data ? b._data.length : b.length) }, 0)
+      var r = new Uint8Array(total), p = 0
+      for (var i = 0; i < list.length; i++) { var d = list[i]._data || list[i]; r.set(d, p); p += d.length }
+      return new PolyBuffer(r)
+    }
+    PolyBuffer.isBuffer = function(obj) { return obj instanceof PolyBuffer }
+    PolyBuffer.prototype.toString = function(enc) {
+      if (enc === 'hex') return Array.from(this._data).map(function(b) { return b.toString(16).padStart(2, '0') }).join('')
+      return new TextDecoder().decode(this._data)
+    }
+    PolyBuffer.prototype.slice = function(s, e) { return new PolyBuffer(this._data.slice(s, e)) }
+    PolyBuffer.prototype.includes = function(search, start) {
+      if (typeof search === 'string') search = new TextEncoder().encode(search)
+      if (search instanceof Uint8Array || search instanceof PolyBuffer) {
+        var data = this._data, needle = search._data || search, end = data.length - needle.length
+        for (var i = start || 0; i <= end; i++) {
+          var found = true
+          for (var j = 0; j < needle.length; j++) {
+            if (data[i + j] !== needle[j]) { found = false; break }
+          }
+          if (found) return true
+        }
+        return false
+      }
+      return false
+    }
+    PolyBuffer.prototype.indexOf = function(value, byteOffset) {
+      if (typeof value === 'number') {
+        for (var i = byteOffset || 0; i < this._data.length; i++) {
+          if (this._data[i] === value) return i
+        }
+        return -1
+      }
+      return this.includes(value, byteOffset) ? byteOffset || 0 : -1
+    }
+    PolyBuffer.prototype.copy = function(t, ts, ss, se) {
+      var src = this._data.slice(ss || 0, se || this._data.length)
+      t._data.set(src, ts || 0); return src.length
+    }
+    PolyBuffer.prototype.writeUInt32BE = function(v, o) {
+      this._data[o] = (v >> 24) & 255; this._data[o+1] = (v >> 16) & 255
+      this._data[o+2] = (v >> 8) & 255; this._data[o+3] = v & 255; return o + 4
+    }
+    PolyBuffer.prototype.readUInt32BE = function(o) {
+      return (this._data[o] << 24) | (this._data[o+1] << 16) | (this._data[o+2] << 8) | this._data[o+3]
+    }
+    window.Buffer = PolyBuffer
+    window.process = { env: {} }
+    console.log('password-store: Buffer polyfill loaded')
+  </script>
+</head>
+<body class="bg-gray-950 text-gray-100">
+  <div id="app">Loading...</div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

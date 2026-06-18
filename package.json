@@ -1,0 +1,44 @@
+{
+  "name": "password-store",
+  "version": "0.1.0",
+  "description": "Desktop and mobile client for password-store (pass)",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:deb": "bash scripts/build-deb.sh",
+    "build:win": "bash scripts/build-win.sh",
+    "build:ext": "vite build --config vite.extension.config.ts && cp extension/manifest.json dist/extension/ && cp -r extension/icons dist/extension/",
+    "build:cap": "vite build --config vite.capacitor.config.ts",
+    "build:android": "bash scripts/build-android.sh",
+    "build:all": "npm run build:deb && npm run build:win",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^8.4.0",
+    "@isomorphic-git/lightning-fs": "^4.6.2",
+    "@noble/hashes": "^1.3.3",
+    "buffer": "^6.0.3",
+    "isomorphic-git": "^1.38.5",
+    "openpgp": "^6.1.0",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.3.1",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^3.1.0",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vue-tsc": "^2.2.0"
+  }
+}
